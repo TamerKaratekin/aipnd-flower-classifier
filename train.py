@@ -9,15 +9,16 @@ import sys, time, os, copy, json
 # might want to seperate the code into these parts in future
 from collections import OrderedDict
 
+## sample call on command line: python train.py flowers --hu 4096 1024 --ckpt_name='checkpoint.pth' --gpu_mode=True --lr=0.0009 --epochs=4 --arch='vgg16'
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Trains a network on a dataset of images and saves the model to a checkpoint")
     parser.add_argument('data_dir', action='store', default='flowers', type=str, help='data directory of the training, validation, and test images')
     parser.add_argument("--save_dir", action="store", dest="save_dir", default="." , help = "Set directory to save checkpoints")
     parser.add_argument("--arch", action="store", dest="arch", default="vgg16" , choices=["vgg16", "resnet18"], help = "Set architechture('vgg16' or 'resnet18')")
-    parser.add_argument("--lr", action="store", dest="learning_rate", default=0.001 , help = "Set learning rate, default at 0.001")
+    parser.add_argument("--lr", action="store", dest="learning_rate", type=float, default=0.001 , help = "Set learning rate, default at 0.001")
     parser.add_argument("--hu", action="store", dest="hidden_layers", nargs='+', type=int, default=None, help = "Set number of hidden units as integer array")
-    parser.add_argument("--epochs", action="store", dest="epochs", default=3 , help = "Set number of epochs, default 3 ")
+    parser.add_argument("--epochs", action="store", dest="epochs", type=int, default=3 , help = "Set number of epochs, default 3 ")
     parser.add_argument('--gpu_mode', default=False, type=bool, help='Set the gpu mode')
     parser.add_argument('--ckpt_name', dest="checkpoint_name", default='checkpoint.pth', type=str, help='Set the save name')
     return parser.parse_args()
@@ -75,8 +76,8 @@ def main():
     
     # Using the image datasets and the trainforms, define the dataloaders
     trainloader = torch.utils.data.DataLoader(train_data, batch_size=64, shuffle=True)
-    validloader = torch.utils.data.DataLoader(valid_data, batch_size=32, shuffle=True)
-    testloader = torch.utils.data.DataLoader(test_data, batch_size=32, shuffle=True)
+    validloader = torch.utils.data.DataLoader(valid_data, batch_size=32, shuffle=False)
+    testloader = torch.utils.data.DataLoader(test_data, batch_size=32, shuffle=False)
     
     dataloaders = {'train': trainloader, 'valid': validloader, 'test': testloader}
     # dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=64, shuffle=True) for x in ['train', 'valid', 'test']}
@@ -96,13 +97,16 @@ def main():
         device = torch.device("cuda:0")
     else:
         device = torch.device("cpu")
-        print('Current device: {}'.format(device))
+    print('Current device: {}'.format(device))
     # Choose a pretrained model
     if arch == 'vgg16':
         model = models.vgg16(pretrained=True)
+        print(model.classifier)
         num_in_features = model.classifier[0].in_features
+        print(num_in_features)
     elif arch == 'resnet18':
         model = models.resnet18(pretrained=True)
+        print(model.classifier)
         # setting input layer size to be the input feature size of the pretrained model
         # we will need this information to create our own classifier
         num_in_features = model.fc.in_features
@@ -117,14 +121,16 @@ def main():
     # 102 could also be infered from cat_to_flowers dictionary size
     num_out_features = 102
     classifier = build_classifier(num_in_features, hidden_layers, num_out_features)
-    
+    criterion = nn.NLLLoss()
     if arch == 'resnet18':
         model.fc = classifier
         # Only train the classifier parameters, feature parameters are frozen
-        optimizer = optim.Adam(model.fc.parameters(), lr=0.001)
+        optimizer = optim.Adam(model.fc.parameters(), learning_rate)
     elif arch == 'vgg16':
         model.classifier = classifier
-        optimizer = optim.Adam(model.classifier.parameters(), lr=0.001)
+        print(learning_rate)
+        print(isinstance(learning_rate,float))
+        optimizer = optim.Adam(model.classifier.parameters(), learning_rate)
     else:
         print("Error in assigning custom classifier to the pretrained model")
         
@@ -132,43 +138,66 @@ def main():
     print('The classifier architecture:')
     print(classifier)
     
-    criterion = nn.CrossEntropyLoss()
     model.to(device)
     
     # now finally training the whole thing
     # I wasn't sure if to input train data only or full data, i guess traindata here 
-    # would be more approriate
+    # would be more approriate. All arguments are declared in the main function
     print('='*5 + ' Train ' + '='*5)
     model = train_model(dataloaders, dataset_sizes, model, criterion, optimizer, device, epochs)
     
     ## now testing it, putting the model to eval() mode, because training is complete
     model.eval()
     accuracy = 0
-    
-    for images, labels in dataloaders['test']:
-        images, labels = images.to(device), labels.to(device)
-        outputs = model(images)
-        # exponentiationg because output is log of probabilities, not necessary
-        probs = torch.exp(outputs)
-        
-        # Class with the highest probability is our predicted class
-        # outputs.max takes the max value over the dimension 1 and returns 2 values(tensors)
-        # If the model guesses correctly, then we have an equality
-        # equality is a tensor with true/false 1/0 values 
-        equality = (labels.data == outputs.max(1)[1])
-        
-        # Accuracy is number of correct predictions divided by all predictions
-        accuracy += equality.type_as(torch.FloatTensor()).mean()
-        
-    print("Test accuracy: {:.3f}".format(accuracy/len(dataloaders['test'])))
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for idx, (images, labels) in enumerate(dataloaders['test']):
+            # images, labels = data
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            # exponentiationg because output is log of probabilities, not necessary
+            # probs = torch.exp(outputs)
+            # Class with the highest probability is our predicted class
+            # outputs.max takes the max value over the dimension 1 and returns 2 values(tensors) 
+            # code is taken from pytorch tutorial site
+            _, predicted = torch.max(outputs.data, 1)
+            # check the first batch of images
+            # if idx == 0:
+            #    print(predicted) #the predicted class
+            #    print(torch.exp(_)) # the predicted probability
+            equals = predicted == labels.data
+            #if idx == 0:
+            #    print(equals)
+            print(equals.float().mean())
+            
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
+            
+            # an alternative that does not seem to work
+            # If the model guesses correctly, then we have an equality
+            # equality = (labels.data == probs.max(1)[1])
+            # Accuracy is number of correct predictions divided by all predictions
+            # not sure if it works
+            # accuracy += equality.type_as(torch.FloatTensor()).mean()
+            # print("Test accuracy: {:.3f}".format(accuracy/len(dataloaders['test'])))
     
     ## Save the checkpoint
     print('='*5 + ' Save ' + '='*5)
     model.class_to_idx = image_datasets['train'].class_to_idx
     model.cat_to_flowers = cat_to_flowers
     checkpoint = {
-        'epoch': epochs,
-        'model': model,
+        'arch': arch,
+        'input_layer': num_in_features,
+        'output_layer': num_out_features,
+        'checkpoint_hidden_layers': hidden_layers,
+        'learning_rate': learning_rate,
+        'epochs': epochs,
+        'gpu_mode': gpu_mode,
+        'class_to_idx': model.class_to_idx,
+        'cat_to_flowers': model.cat_to_flowers,
+        'state_dict' : model.state_dict(),
         'opt_dict' : optimizer.state_dict()
     }
     torch.save(checkpoint, checkpoint_name)
@@ -180,10 +209,12 @@ def build_classifier(num_in_features, hidden_layers, num_out_features):
     modified self-code on lab1 and from Wenjin Tao's example on github
     added output with LogSoftmax and dropout_const
     """
-    hll = len(hidden_layers)
+    
     classifier = nn.Sequential()
     if hidden_layers == None:
         classifier.add_module('fc0', nn.Linear(num_in_features, num_out_features))
+        classifier.add_module('output', nn.LogSoftmax(dim=1))
+        print(classifier)
     else:
         # prepare the mapping of layer sizes with zipping reversed and straight counts
         layer_sizes = zip(hidden_layers[:-1], hidden_layers[1:])
@@ -191,29 +222,27 @@ def build_classifier(num_in_features, hidden_layers, num_out_features):
         # print(hidden_layers[1:])
         classifier.add_module('fc0', nn.Linear(num_in_features, hidden_layers[0]))
         classifier.add_module('relu0', nn.ReLU())
-        classifier.add_module('drop0', nn.Dropout(0.9))
-        print(classifier)
+        classifier.add_module('drop0', nn.Dropout(0.1))
         for i, (h1, h2) in enumerate(layer_sizes):
+            # print(i)
             classifier.add_module('fc'+str(i+1), nn.Linear(h1, h2))
             classifier.add_module('relu'+str(i+1), nn.ReLU())
-            classifier.add_module('drop'+str(i+1), nn.Dropout(0.9))
-            print(i)
-        print(hll)
-        classifier.add_module('fc'+str(hll+i), nn.Linear(hidden_layers[-1], num_out_features))
-        classifier.add_module('output', nn.LogSoftmax(dim=1))
-    
+            classifier.add_module('drop'+str(i+1), nn.Dropout(0.1))
+        hll = len(hidden_layers)
+        classifier.add_module('fc'+str(hll), nn.Linear(hidden_layers[-1], num_out_features))
+        classifier.add_module('output', nn.LogSoftmax(dim=1))    
     return classifier
 
-def train_model(dataloaders, dataset_sizes, model, criterion, optimizer, device, num_epochs=3):
+def train_model(dataloaders, dataset_sizes, model, criterion, optimizer, device, num_epochs):
     # modified based on transfer learning tutorial on Pytorch site
     
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
+    best_acc = 0.000
 
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+        print('Epoch {}/{}'.format(epoch + 1 , num_epochs))
         print('-' * 10)
 
         # Each epoch has a training and validation phase
@@ -239,7 +268,12 @@ def train_model(dataloaders, dataset_sizes, model, criterion, optimizer, device,
                 # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
+                    # probs = torch.exp(outputs)
+                    # print("Exponentiated Log Probabilities")
+                    # print(probs)
                     _, preds = torch.max(outputs, 1)
+                    # print("Predictions")
+                    # print(preds)
                     loss = criterion(outputs, labels)
 
                     # backward + optimize only if in training phase
@@ -258,7 +292,7 @@ def train_model(dataloaders, dataset_sizes, model, criterion, optimizer, device,
                 phase, epoch_loss, epoch_acc))
 
             # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
+            if phase == 'valid' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
 
