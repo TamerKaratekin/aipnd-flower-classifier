@@ -1,0 +1,7 @@
+While working on lab part 1, my first source of information was the lecture videos. As I got stuck on various parts due to various bugs and typos, I searched stackoverflow, pytorch forums, and blogs on pytorch transfer learning. To make a custom classifier function, i investigated a few examples on Github, which i commented in the code.
+
+On lab part 2 coding the train function, I tried to follow primarily the Pytorch Transfer Learning tutorial that can be found on their website. Also, I took advantage of various blog posts to understand short code snippets where I was getting stuck. I was trying to refactor my code.
+
+Overall, to finish both parts of lab took 4 full days of work. I think many parts of the can be reused and the total program size can be shortened.
+
+Main reason for slowing down was the need to have the model train using GPU, which would last around 10 minutes. Also, working on the lab space is not as efficent as working on an IDE like Xcode or Atom, many bugs entered the code that could have been prevented easier.
