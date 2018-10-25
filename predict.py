@@ -14,6 +14,7 @@ from matplotlib.pyplot import imshow
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# testing github push 
 # command line usage: python predict.py input_image checkpoint.pth --topk=4 --gpu_mode=True
 # python predict.py flowers/test/17/image_03911.jpg checkpoint.pth --gpu_mode=True --top_k=5 --cat_names cat_to_name.json
 
@@ -28,7 +29,7 @@ def parse_args():
 
 def process_image(imagepath):
     # tries to open the image and returns a tranformed nparray containing the image
-    im = Image.open(imagepath)    
+    im = Image.open(imagepath)
     im.thumbnail([256, 256])
     width, height = im.size   # Get dimensions
     # print(im.size)
@@ -56,7 +57,7 @@ def process_image(imagepath):
     # print(np_image)
     # print(np_image.min())
     # print(np_image.max())
-        
+
     np_image = np_image.transpose(2,0,1)
     # print(np_image.shape)
     return np_image
@@ -66,11 +67,11 @@ def load_checkpoint(filepath, gpu_mode):
         device = torch.device('cuda:0')
         checkpoint = torch.load(filepath)
         print("checkpoint loaded with gpu mode on")
-    else: 
+    else:
         device = torch.device('cpu')
         checkpoint = torch.load(filepath, device)
         print("checkpoint loaded with cpu mode on")
-        
+
     # checkpoint = {
     #    'arch': arch
     #    'input_layer': input_size
@@ -91,7 +92,7 @@ def load_checkpoint(filepath, gpu_mode):
     checkpoint_hidden_layers = checkpoint['checkpoint_hidden_layers']
     # epochs won't be used for now
     # epoch =  checkpoint['epochs']
-       
+
     # choose device mode
     if gpu_mode and torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -101,7 +102,7 @@ def load_checkpoint(filepath, gpu_mode):
     # Choose a pretrained model and copy its number of input features
     if arch == 'vgg16':
         model = models.vgg16(pretrained=True)
-        num_in_features = model.classifier[0].in_features        
+        num_in_features = model.classifier[0].in_features
     elif arch == 'resnet18':
         model = models.resnet18(pretrained=True)
         # setting input layer size to be the input feature size of the pretrained model
@@ -112,7 +113,7 @@ def load_checkpoint(filepath, gpu_mode):
     # Freeze parameters so we don't backprop through them
     for param in model.parameters():
         param.requires_grad = False
-        
+
     # num_out_features = 102
     num_out_features = output_layer
     hidden_layers = checkpoint_hidden_layers
@@ -135,7 +136,7 @@ def load_checkpoint(filepath, gpu_mode):
     model.class_to_idx = checkpoint['class_to_idx']
     model.cat_to_flowers = checkpoint['cat_to_flowers']
     print("loaded layers, model_dict, opt_dict, and attributes successfully")
-      
+
     return model
 
 def predict(image_path, model, device, topk, cat_to_name):
@@ -153,12 +154,12 @@ def predict(image_path, model, device, topk, cat_to_name):
     top_probs = top_probs.detach().numpy().tolist()[0]
     top_idx = top_idx.detach().numpy().tolist()[0]
     class_to_idx = model.class_to_idx
-    # use cat_to_name mapping entered by user as predict function input 
+    # use cat_to_name mapping entered by user as predict function input
     cat_to_flowers = cat_to_name
     # alternatively, one can use cat_to_flowers from the model category mappings
     # cat_to_flowers = model.cat_to_flowers
-    
-    
+
+
     idx_to_class = { v : k for k,v in class_to_idx.items()}
     top_labels = [idx_to_class[idx] for idx in top_idx]
     top_flowers = [cat_to_flowers[idx_to_class[idx]] for idx in top_idx]
@@ -189,10 +190,10 @@ def main():
     # with open('cat_to_name.json', 'r') as f:
     # a dictionary mapping the integer encoded categories to the actual names of the flowers
     # cat_to_flowers = json.load(f)
-    
+
     top_probs, top_labels, top_flowers = predict(image, model, device, top_k, cat_to_flowers)
     print(top_probs)
     print(top_flowers)
-    
+
 if __name__ == '__main__':
     main()

@@ -9,6 +9,7 @@ import sys, time, os, copy, json
 # might want to seperate the code into these parts in future
 from collections import OrderedDict
 
+## testing github push
 ## sample call on command line: python train.py flowers --hu 4096 1024 --ckpt_name='checkpoint.pth' --gpu_mode=True --lr=0.0009 --epochs=4 --arch='vgg16'
 
 def parse_args():
@@ -33,7 +34,7 @@ def main():
     epochs = args.epochs
     checkpoint_name = args.checkpoint_name
     gpu_mode = args.gpu_mode
-    
+
     print('='*10+'Params'+'='*10)
     print('Data dir:      {}'.format(data_dir))
     print('Arch:         {}'.format(arch))
@@ -41,57 +42,57 @@ def main():
     print('Learning rate: {}'.format(learning_rate))
     print('Epochs:        {}'.format(epochs))
     print('GPU mode:        {}'.format(gpu_mode))
-    
+
     # Defining transforms for the training, validation, and testing sets
     # copying code over from part 1 of the lab
     train_transforms = transforms.Compose([transforms.RandomRotation(30),
                                        transforms.RandomResizedCrop(224),
                                        transforms.RandomHorizontalFlip(),
                                        transforms.ToTensor(),
-                                       transforms.Normalize([0.485, 0.456, 0.406], 
+                                       transforms.Normalize([0.485, 0.456, 0.406],
                                                             [0.229, 0.224, 0.225])])
     valid_transforms = transforms.Compose([transforms.Resize(256),
                                       transforms.CenterCrop(224),
                                       transforms.ToTensor(),
-                                      transforms.Normalize([0.485, 0.456, 0.406], 
+                                      transforms.Normalize([0.485, 0.456, 0.406],
                                                            [0.229, 0.224, 0.225])])
     test_transforms = transforms.Compose([transforms.Resize(256),
                                       transforms.CenterCrop(224),
                                       transforms.ToTensor(),
-                                      transforms.Normalize([0.485, 0.456, 0.406], 
+                                      transforms.Normalize([0.485, 0.456, 0.406],
                                                            [0.229, 0.224, 0.225])])
     # data_transforms = {'train': train_transforms, 'valid': valid_transforms, 'test': test_transforms}
-    
+
     train_dir = data_dir + '/train'
     valid_dir = data_dir + '/valid'
     test_dir = data_dir + '/test'
-    
+
     # Loading data sets from the image folders
     train_data = datasets.ImageFolder(train_dir, transform=train_transforms)
     valid_data = datasets.ImageFolder(valid_dir, transform=valid_transforms)
     test_data = datasets.ImageFolder(test_dir, transform=test_transforms)
-    
+
     image_datasets = {'train': train_data, 'valid': valid_data, 'test': test_data}
     # image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in ['train', 'valid', 'test']}
-    
+
     # Using the image datasets and the trainforms, define the dataloaders
     trainloader = torch.utils.data.DataLoader(train_data, batch_size=64, shuffle=True)
     validloader = torch.utils.data.DataLoader(valid_data, batch_size=32, shuffle=False)
     testloader = torch.utils.data.DataLoader(test_data, batch_size=32, shuffle=False)
-    
+
     dataloaders = {'train': trainloader, 'valid': validloader, 'test': testloader}
     # dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=64, shuffle=True) for x in ['train', 'valid', 'test']}
-    
+
     train_size = len(train_data)
     valid_size = len(valid_data)
     test_size = len(valid_data)
     dataset_sizes = {'train': train_size, 'valid': valid_size, 'test': test_size}
     # dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'valid', 'test']}
-    
+
     with open('cat_to_name.json', 'r') as f:
         cat_to_flowers = json.load(f)
     # a dictionary mapping the integer encoded categories to the actual names of the flowers
-    
+
     # Set the GPU on if the user requested it and the machine has it
     if gpu_mode and torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -115,7 +116,7 @@ def main():
     # Freeze parameters so we don't backprop through them
     for param in model.parameters():
         param.requires_grad = False
-    
+
     # Redesign the classifier using custom in_featuers and hidden_layers
     # 102 is carried over from the 102 flower classification problem
     # 102 could also be infered from cat_to_flowers dictionary size
@@ -133,19 +134,19 @@ def main():
         optimizer = optim.Adam(model.classifier.parameters(), learning_rate)
     else:
         print("Error in assigning custom classifier to the pretrained model")
-        
+
     print('='*5 + ' Architecture ' + '='*5)
     print('The classifier architecture:')
     print(classifier)
-    
+
     model.to(device)
-    
+
     # now finally training the whole thing
-    # I wasn't sure if to input train data only or full data, i guess traindata here 
+    # I wasn't sure if to input train data only or full data, i guess traindata here
     # would be more approriate. All arguments are declared in the main function
     print('='*5 + ' Train ' + '='*5)
     model = train_model(dataloaders, dataset_sizes, model, criterion, optimizer, device, epochs)
-    
+
     ## now testing it, putting the model to eval() mode, because training is complete
     model.eval()
     accuracy = 0
@@ -159,7 +160,7 @@ def main():
             # exponentiationg because output is log of probabilities, not necessary
             # probs = torch.exp(outputs)
             # Class with the highest probability is our predicted class
-            # outputs.max takes the max value over the dimension 1 and returns 2 values(tensors) 
+            # outputs.max takes the max value over the dimension 1 and returns 2 values(tensors)
             # code is taken from pytorch tutorial site
             _, predicted = torch.max(outputs.data, 1)
             # check the first batch of images
@@ -170,11 +171,11 @@ def main():
             #if idx == 0:
             #    print(equals)
             print(equals.float().mean())
-            
+
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
     print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
-            
+
             # an alternative that does not seem to work
             # If the model guesses correctly, then we have an equality
             # equality = (labels.data == probs.max(1)[1])
@@ -182,7 +183,7 @@ def main():
             # not sure if it works
             # accuracy += equality.type_as(torch.FloatTensor()).mean()
             # print("Test accuracy: {:.3f}".format(accuracy/len(dataloaders['test'])))
-    
+
     ## Save the checkpoint
     print('='*5 + ' Save ' + '='*5)
     model.class_to_idx = image_datasets['train'].class_to_idx
@@ -201,7 +202,7 @@ def main():
         'opt_dict' : optimizer.state_dict()
     }
     torch.save(checkpoint, checkpoint_name)
-    print('Save the trained model to {}'.format(checkpoint_name))    
+    print('Save the trained model to {}'.format(checkpoint_name))
 
 def build_classifier(num_in_features, hidden_layers, num_out_features):
     """Build a classifer with input, hidden, and output layer nodes
@@ -209,7 +210,7 @@ def build_classifier(num_in_features, hidden_layers, num_out_features):
     modified self-code on lab1 and from Wenjin Tao's example on github
     added output with LogSoftmax and dropout_const
     """
-    
+
     classifier = nn.Sequential()
     if hidden_layers == None:
         classifier.add_module('fc0', nn.Linear(num_in_features, num_out_features))
@@ -230,12 +231,12 @@ def build_classifier(num_in_features, hidden_layers, num_out_features):
             classifier.add_module('drop'+str(i+1), nn.Dropout(0.1))
         hll = len(hidden_layers)
         classifier.add_module('fc'+str(hll), nn.Linear(hidden_layers[-1], num_out_features))
-        classifier.add_module('output', nn.LogSoftmax(dim=1))    
+        classifier.add_module('output', nn.LogSoftmax(dim=1))
     return classifier
 
 def train_model(dataloaders, dataset_sizes, model, criterion, optimizer, device, num_epochs):
     # modified based on transfer learning tutorial on Pytorch site
-    
+
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -305,8 +306,7 @@ def train_model(dataloaders, dataset_sizes, model, criterion, optimizer, device,
 
     # load best model weights
     model.load_state_dict(best_model_wts)
-    return model   
+    return model
 
 if __name__ == '__main__':
     main()
-    
