@@ -4,4 +4,4 @@ On lab part 2 coding the train function, I tried to follow primarily the Pytorch
 
 Overall, to finish both parts of lab took 4 full days of work. I think many parts of the can be reused and the total program size can be shortened.
 
-Main reason for slowing down was the need to have the model train using GPU, which would last around 10 minutes. Also, working on the lab space is not as efficent as working on an IDE like Xcode or Atom, many bugs entered the code that could have been prevented easier.
+Main reason for slowing down was the need to have the model train using GPU, which would last around 10 minutes. To switch between GPU/CPU modes on the server would also take around 5 mintutes to save everything, then to compress, then to shutdown to system, then launch again, and uncompress. Also, working on the lab space is not as efficent as working on an IDE like Xcode or Atom, many bugs entered the code that could have been prevented easier.
